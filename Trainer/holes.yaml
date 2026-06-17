@@ -1,0 +1,25 @@
+# holes.yaml — YOLO dataset config for bullet-hole detection
+#
+# Expected folder layout (Ultralytics YOLO format):
+#
+#   dataset/
+#     images/
+#       train/   <- ~80% of your labeled JPEGs
+#       val/     <- ~20% of your labeled JPEGs
+#     labels/
+#       train/   <- one .txt per image, same basename
+#       val/
+#
+# Each label .txt line:  <class> <x_center> <y_center> <width> <height>
+# All values normalized 0..1, relative to image size. class 0 = hole.
+#
+# You produce images/ + labels/ by exporting from Roboflow or CVAT in
+# "YOLOv8" format after labeling the frames scope_training.py collected.
+
+path: ./dataset        # root dir (relative to where you run training, or absolute)
+train: images/train    # train images (relative to 'path')
+val: images/val        # val images (relative to 'path')
+
+# Classes
+names:
+  0: hole
