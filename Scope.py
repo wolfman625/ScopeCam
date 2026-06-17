@@ -495,12 +495,12 @@ class ScopeApp(tk.Tk):
         cbf.pack(anchor="w", pady=(2,0), **pad)
         self.cal_btn = tk.Button(cbf, text="Start Calibration",
                                  bg=ORANGE, fg="white", relief="flat",
-                                 font=("Courier New", 8, "bold"),
-                                 padx=6, pady=3, command=self._start_calibration)
+                                 font=("Courier New", 9, "bold"),
+                                 padx=8, pady=9, command=self._start_calibration)
         self.cal_btn.pack(side=tk.LEFT, padx=(0,4))
         self._add_pop(self.cal_btn)
         b = tk.Button(cbf, text="Reset", bg=DARK, fg=TEXT, relief="flat",
-                      font=("Courier New", 8), padx=6, pady=3,
+                      font=("Courier New", 9), padx=8, pady=9,
                       command=self._reset_calibration)
         b.pack(side=tk.LEFT)
         self._add_pop(b)
@@ -512,20 +512,20 @@ class ScopeApp(tk.Tk):
                  font=("Courier New", 8, "bold")).pack(anchor="w", **pad)
         hbf = tk.Frame(panel, bg=PANEL)
         hbf.pack(anchor="w", pady=(2,0), **pad)
-        self.ref_btn = tk.Button(hbf, text="Set Reference",
+        self.ref_btn = tk.Button(hbf, text="Set Ref",
                                  bg=BLUE, fg="white", relief="flat",
-                                 font=("Courier New", 8, "bold"),
-                                 padx=6, pady=3, command=self._set_reference)
+                                 font=("Courier New", 9, "bold"),
+                                 padx=7, pady=9, command=self._set_reference)
         self.ref_btn.pack(side=tk.LEFT, padx=(0,4))
         self._add_pop(self.ref_btn)
         self.detect_btn = tk.Button(hbf, text="Auto: OFF",
                                     bg=DARK, fg=TEXT, relief="flat",
-                                    font=("Courier New", 8, "bold"),
-                                    padx=6, pady=3, command=self._toggle_detect)
+                                    font=("Courier New", 9, "bold"),
+                                    padx=7, pady=9, command=self._toggle_detect)
         self.detect_btn.pack(side=tk.LEFT, padx=(0,4))
         self._add_pop(self.detect_btn)
-        mb = tk.Button(hbf, text="+ Manual", bg=DARK, fg=TEXT, relief="flat",
-                       font=("Courier New", 8, "bold"), padx=6, pady=3,
+        mb = tk.Button(hbf, text="Manual", bg=DARK, fg=TEXT, relief="flat",
+                       font=("Courier New", 9, "bold"), padx=7, pady=9,
                        command=self._start_manual_hit)
         mb.pack(side=tk.LEFT)
         self._add_pop(mb)
@@ -572,8 +572,8 @@ class ScopeApp(tk.Tk):
             abf.pack(anchor="w", pady=(2,0), **pad)
             self.audio_btn = tk.Button(abf, text="🎤 Start Listening",
                                        bg=DARK, fg=GREEN, relief="flat",
-                                       font=("Courier New", 8, "bold"),
-                                       padx=6, pady=3,
+                                       font=("Courier New", 9, "bold"),
+                                       padx=8, pady=9,
                                        command=self._toggle_audio)
             self.audio_btn.pack(side=tk.LEFT, padx=(0,4))
             self._add_pop(self.audio_btn)
@@ -600,8 +600,8 @@ class ScopeApp(tk.Tk):
         ]:
             b = tk.Button(sbf, text=label,
                           bg=DARK, fg=fg_, relief="flat",
-                          font=("Courier New", 8, "bold"),
-                          padx=8, pady=3, command=cmd)
+                          font=("Courier New", 9, "bold"),
+                          padx=12, pady=9, command=cmd)
             b.pack(side=tk.LEFT, padx=(0,3))
             self._add_pop(b)
 
@@ -612,14 +612,14 @@ class ScopeApp(tk.Tk):
         bf2.pack(anchor="w", pady=(0,2), **pad)
         self.rec_btn = tk.Button(bf2, text="⏺ Record",
                                  bg=DARK, fg=GREEN, relief="flat",
-                                 font=("Courier New", 8, "bold"),
-                                 padx=8, pady=3, command=self._toggle_record)
+                                 font=("Courier New", 9, "bold"),
+                                 padx=12, pady=9, command=self._toggle_record)
         self.rec_btn.pack(side=tk.LEFT, padx=(0,6))
         self._add_pop(self.rec_btn)
         self.xhair_var = tk.BooleanVar(value=True)
         tk.Checkbutton(bf2, text="Crosshair", variable=self.xhair_var,
                        bg=PANEL, fg=TEXT, selectcolor=DARK,
-                       activebackground=PANEL, font=("Courier New", 8),
+                       activebackground=PANEL, font=("Courier New", 9),
                        command=self._toggle_crosshair).pack(side=tk.LEFT)
 
         # ── Status bar ────────────────────────────────────────────────────────
@@ -633,16 +633,16 @@ class ScopeApp(tk.Tk):
         bottom_frame.pack(side=tk.BOTTOM, pady=5, padx=12, fill=tk.X)
 
         quit_btn = tk.Button(bottom_frame, text="✕  QUIT", bg=DARK, fg=RED,
-                             relief="flat", font=("Courier New", 9, "bold"),
-                             width=10, pady=4,
+                             relief="flat", font=("Courier New", 10, "bold"),
+                             width=10, pady=10,
                              activebackground=_lighten(DARK),
                              command=self.on_close)
         quit_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 3))
         self._add_pop(quit_btn)
 
         shut_btn = tk.Button(bottom_frame, text="⏻  SHUTDOWN", bg=RED, fg="white",
-                             relief="flat", font=("Courier New", 9, "bold"),
-                             width=10, pady=4,
+                             relief="flat", font=("Courier New", 10, "bold"),
+                             width=10, pady=10,
                              activebackground="#8b1111",
                              command=self._shutdown)
         shut_btn.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(3, 0))
