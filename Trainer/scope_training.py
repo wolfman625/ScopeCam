@@ -64,6 +64,7 @@ picam2          = None
 recording       = False
 running         = True
 _cam_lock       = threading.Lock()
+_count_lock     = threading.Lock()   # guards capture_count increments
 
 session_dir     = None    # active capture folder (set when a session starts)
 session_name    = None    # human-readable session label
@@ -130,9 +131,11 @@ def capture_still(meta):
         raise RuntimeError("Start a session before capturing")
     with _cam_lock:
         frame = picam2.capture_array("main")
-    capture_count += 1
+    with _count_lock:
+        capture_count += 1
+        n = capture_count
     ts    = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-    fname = f"{session_name}_{capture_count:04d}_{ts}.jpg"
+    fname = f"{session_name}_{n:04d}_{ts}.jpg"
     path  = os.path.join(session_dir, fname)
     Image.fromarray(frame).save(path, quality=95)
     _append_manifest(fname, meta)
@@ -216,8 +219,10 @@ def extract_frames(clip_path, fps, meta, progress_cb=None):
         frames = sorted(glob.glob(os.path.join(tmp, "f_*.jpg")))
         written = 0
         for src in frames:
-            capture_count += 1
-            fname = f"{session_name}_{capture_count:04d}_{base}_x{written:03d}.jpg"
+            with _count_lock:
+                capture_count += 1
+                n = capture_count
+            fname = f"{session_name}_{n:04d}_{base}_x{written:03d}.jpg"
             dst   = os.path.join(session_dir, fname)
             shutil.move(src, dst)
             row_meta = dict(meta)
@@ -242,6 +247,7 @@ class TrainingApp(tk.Tk):
         self.geometry(f"{WIN_W}x{WIN_H}+0+0")
         self.resizable(False, False)
         self._burst_job = None
+        self._burst_active = False
         self._build_ui()
         self._bind_keys()
         threading.Thread(target=self._hw_init, daemon=True).start()
@@ -494,6 +500,10 @@ class TrainingApp(tk.Tk):
             self.count_var.set("Captured: 0")
             self.status(f"Session started → {session_dir}")
         else:
+            if self._burst_active:
+                self._stop_burst()
+            if recording:
+                self._stop_record()
             ended = session_name
             n = capture_count
             session_dir = session_name = _manifest_path = None
@@ -506,50 +516,68 @@ class TrainingApp(tk.Tk):
 
     # ── capture ────────────────────────────────────────────────────────────────
 
-    def _capture(self):
-        """Save one full-res still in a background thread (non-blocking)."""
+    def _capture(self, on_done=None):
+        """Save one full-res still in a background thread (non-blocking).
+        on_done(ok) is invoked on the UI thread when finished (used by burst)."""
         if session_dir is None:
             self.status("Start a session first!")
+            if on_done is not None:
+                on_done(False)
             return
         meta = self._current_meta()
         def _do():
+            ok = True
             try:
                 path = capture_still(meta)
                 self.after(0, lambda: (
                     self.count_var.set(f"Captured: {capture_count}"),
                     self.status(f"Saved: {os.path.basename(path)}")))
             except Exception as e:
+                ok = False
                 self.after(0, lambda: self.status(f"Capture error: {e}"))
+            finally:
+                if on_done is not None:
+                    self.after(0, lambda: on_done(ok))
         threading.Thread(target=_do, daemon=True).start()
 
     def _toggle_burst(self):
-        """Start or stop automatic timed burst capture (~2 fps)."""
-        if self._burst_job is None:
+        """Start or stop automatic timed burst capture (sequential, ~2 fps)."""
+        if not self._burst_active:
             if session_dir is None:
                 self.status("Start a session first!")
                 return
+            self._burst_active = True
             self._burst_left = self.burst_n.get()
             self.burst_btn.config(text="Stop Burst", bg=RED, fg="white")
             self.status(f"Burst: capturing {self._burst_left} frames…")
-            self._burst_tick()
+            self._burst_next()
         else:
             self._stop_burst()
 
-    def _burst_tick(self):
-        """Capture one burst frame, then schedule the next until done."""
-        if self._burst_left <= 0:
+    def _burst_next(self):
+        """Capture one burst frame; the next is scheduled only after it
+        finishes, preventing thread pile-up on slow full-res saves."""
+        if not self._burst_active or self._burst_left <= 0:
             self._stop_burst()
             return
-        self._capture()
         self._burst_left -= 1
+        self._capture(on_done=self._burst_after_capture)
+
+    def _burst_after_capture(self, ok):
+        if not self._burst_active:
+            return
         if self._burst_left <= 0:
             self._stop_burst()
         else:
-            self._burst_job = self.after(500, self._burst_tick)  # ~2 fps
+            self._burst_job = self.after(500, self._burst_next)  # ~2 fps
 
     def _stop_burst(self):
+        self._burst_active = False
         if self._burst_job is not None:
-            self.after_cancel(self._burst_job)
+            try:
+                self.after_cancel(self._burst_job)
+            except Exception:
+                pass
         self._burst_job = None
         self.burst_btn.config(text="Start Burst", bg=DARK, fg=TEXT)
         self.status("Burst finished")
@@ -573,15 +601,23 @@ class TrainingApp(tk.Tk):
             except Exception as e:
                 messagebox.showerror("Record failed", str(e))
         else:
-            try:
-                stop_recording()
-                recording = False
-                if hasattr(self, "_rec_timer_id"):
-                    self.after_cancel(self._rec_timer_id)
-                self.rec_btn.config(text="⏺ Record Clip", bg=DARK, fg=GREEN)
-                self.status("Clip saved.")
-            except Exception as e:
-                messagebox.showerror("Stop failed", str(e))
+            self._stop_record()
+
+    def _stop_record(self):
+        """Stop recording if active and reset the record button."""
+        global recording
+        if not recording:
+            return
+        try:
+            stop_recording()
+        except Exception as e:
+            messagebox.showerror("Stop failed", str(e))
+            return
+        recording = False
+        if hasattr(self, "_rec_timer_id"):
+            self.after_cancel(self._rec_timer_id)
+        self.rec_btn.config(text="⏺ Record Clip", bg=DARK, fg=GREEN)
+        self.status("Clip saved.")
 
     def _tick_timer(self):
         if recording:
@@ -646,6 +682,7 @@ class TrainingApp(tk.Tk):
         """Clean shutdown: stop threads, burst, encoder, then camera."""
         global running
         running = False
+        self._burst_active = False
         if self._burst_job is not None:
             try:
                 self.after_cancel(self._burst_job)
