@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ScopeCam Training — GUI Preview</title>
+<style>
+  :root{
+    --bg:#f5f5f5; --panel:#e0e0e0; --accent:#0057b7; --text:#111111;
+    --muted:#555555; --green:#1a6e1a; --blue:#0057b7; --red:#b91c1c;
+    --dark:#c8c8c8; --orange:#c45c00;
+  }
+  html,body{margin:0;background:#333;font-family:'Courier New',monospace;
+    display:flex;flex-direction:column;align-items:center;padding:24px;gap:14px;}
+  .caption{color:#ddd;font-size:13px;text-align:center;max-width:1024px;line-height:1.5;}
+  .caption b{color:#fff;}
+  /* Fixed 1024x600 window, matching WIN_W x WIN_H */
+  .window{width:1024px;height:600px;display:flex;background:var(--bg);
+    box-shadow:0 8px 30px rgba(0,0,0,.6);overflow:hidden;border:1px solid #000;}
+
+  /* Left preview area: 720 wide, full height, black */
+  .preview{width:720px;height:600px;background:#000;position:relative;
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .preview .scene{position:absolute;inset:0;
+    background:radial-gradient(circle at 50% 45%, #2c2c2c 0%, #111 70%, #000 100%);}
+  /* Fake target with bullet holes to look like a real preview */
+  .target{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);
+    width:300px;height:300px;border-radius:50%;background:#f3f0e6;
+    box-shadow:0 0 0 6px #fff, 0 0 40px rgba(0,0,0,.6);}
+  .ring{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    border-radius:50%;border:2px solid #b9b3a0;}
+  .bull{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:70px;height:70px;border-radius:50%;background:#111;}
+  .hole{position:absolute;width:13px;height:13px;border-radius:50%;
+    background:#0c0c0c;box-shadow:inset 0 0 3px #000,0 0 2px rgba(0,0,0,.8);}
+  .hud{position:absolute;left:14px;top:12px;color:#7d7;font-size:12px;
+    text-shadow:0 0 4px #000;}
+  .hud2{position:absolute;left:14px;bottom:12px;color:#9ad;font-size:12px;
+    text-shadow:0 0 4px #000;}
+
+  /* Right control panel: 304 wide */
+  .panel{width:304px;height:600px;background:var(--panel);box-sizing:border-box;
+    padding:8px 0 0 0;display:flex;flex-direction:column;}
+  .px{padding-left:12px;padding-right:12px;}
+
+  .titlerow{display:flex;justify-content:space-between;align-items:center;}
+  .title{color:var(--accent);font-size:15px;font-weight:bold;}
+  .ssd{color:var(--green);font-size:9px;}
+
+  hr.sep{border:none;border-top:1px solid #b9b9b9;margin:3px 12px;}
+
+  .sec{color:var(--accent);font-size:11px;font-weight:bold;margin:1px 0;}
+  .lbl{color:var(--muted);font-size:11px;}
+  .row{display:flex;align-items:center;gap:6px;margin-top:2px;}
+
+  .input{background:#fff;color:var(--text);border:none;font-family:inherit;
+    font-size:12px;padding:3px 5px;}
+  .combo{background:#fff;color:var(--text);border:1px solid #aaa;font-size:11px;
+    padding:2px 4px;display:inline-flex;align-items:center;gap:6px;}
+  .combo::after{content:"▾";color:#666;font-size:9px;}
+
+  button,.btn{font-family:inherit;border:none;cursor:default;color:#fff;
+    font-weight:bold;border-radius:0;}
+  .btn-session{background:var(--orange);font-size:12px;padding:9px 8px;margin-top:3px;
+    display:inline-block;}
+  .sess-status{color:var(--orange);font-size:9px;margin-top:2px;}
+
+  .btn-capture{background:var(--blue);font-size:16px;padding:14px 0;margin-top:2px;
+    width:100%;text-align:center;}
+  .btn-small{background:var(--dark);color:var(--text);font-size:12px;padding:9px 8px;}
+  .count{color:var(--green);font-size:12px;font-weight:bold;margin-top:3px;}
+
+  .hint{color:var(--muted);font-size:9px;margin-top:1px;}
+  .btn-rec{background:var(--dark);color:var(--green);font-size:12px;padding:9px 12px;
+    margin-top:2px;display:inline-block;}
+
+  .statusbar{color:var(--muted);font-size:9px;margin-top:3px;}
+
+  .bottom{margin-top:auto;display:flex;gap:6px;padding:5px 12px;}
+  .btn-quit{background:var(--dark);color:var(--red);font-size:14px;padding:10px 0;
+    flex:1;text-align:center;}
+  .btn-shut{background:var(--red);color:#fff;font-size:14px;padding:10px 0;
+    flex:1;text-align:center;}
+</style>
+</head>
+<body>
+  <div class="caption">
+    <b>ScopeCam Training — Dataset Collection</b> &nbsp;·&nbsp; pixel-accurate mock of
+    <b>scope_training.py</b> (1024×600, exact colors/fonts from the source).
+    Left: live IMX477 preview. Right: Session → Conditions → Capture → Video Clip controls.
+  </div>
+
+  <div class="window">
+    <!-- ── PREVIEW ───────────────────────────────────────────── -->
+    <div class="preview">
+      <div class="scene"></div>
+      <div class="target">
+        <div class="ring" style="width:300px;height:300px;"></div>
+        <div class="ring" style="width:230px;height:230px;"></div>
+        <div class="ring" style="width:160px;height:160px;"></div>
+        <div class="bull"></div>
+        <!-- bullet holes -->
+        <div class="hole" style="left:140px;top:128px;"></div>
+        <div class="hole" style="left:158px;top:150px;"></div>
+        <div class="hole" style="left:128px;top:158px;"></div>
+        <div class="hole" style="left:150px;top:138px;"></div>
+        <div class="hole" style="left:172px;top:120px;"></div>
+      </div>
+      <div class="hud">● LIVE 720×490</div>
+      <div class="hud2">main 2028×1520 · lores preview</div>
+    </div>
+
+    <!-- ── CONTROL PANEL ─────────────────────────────────────── -->
+    <div class="panel">
+      <div class="px titlerow">
+        <span class="title">⬡ TRAINING</span>
+        <span class="ssd">💾 SSD</span>
+      </div>
+      <hr class="sep">
+
+      <!-- 1 SESSION -->
+      <div class="px sec">1&nbsp;&nbsp;SESSION</div>
+      <div class="px row">
+        <span class="lbl">Name:</span>
+        <span class="input" style="width:150px;display:inline-block;">rangeday1</span>
+      </div>
+      <div class="px"><span class="btn btn-session">Start Session</span></div>
+      <div class="px sess-status">No active session</div>
+      <hr class="sep">
+
+      <!-- 2 CONDITIONS -->
+      <div class="px sec">2&nbsp;&nbsp;CONDITIONS</div>
+      <div class="px row"><span class="lbl">Lighting&nbsp;</span><span class="combo">bright-sun</span></div>
+      <div class="px row"><span class="lbl">Target&nbsp;&nbsp;&nbsp;</span><span class="combo">paper-bull</span></div>
+      <div class="px row"><span class="lbl">Caliber&nbsp;&nbsp;</span><span class="combo">.223/5.56</span></div>
+      <div class="px row"><span class="lbl">Distance&nbsp;</span><span class="combo">100yd</span></div>
+      <hr class="sep">
+
+      <!-- 3 CAPTURE -->
+      <div class="px sec">3&nbsp;&nbsp;CAPTURE</div>
+      <div class="px"><div class="btn btn-capture">📷&nbsp;&nbsp;CAPTURE</div></div>
+      <div class="px row">
+        <span class="lbl">Burst:</span>
+        <span class="combo">10</span>
+        <span class="btn btn-small">Start Burst</span>
+      </div>
+      <div class="px count">Captured: 0</div>
+      <hr class="sep">
+
+      <!-- 4 VIDEO CLIP -->
+      <div class="px sec">4&nbsp;&nbsp;VIDEO CLIP</div>
+      <div class="px hint">Record clip → extract frames later</div>
+      <div class="px"><span class="btn btn-rec">⏺ Record Clip</span></div>
+      <div class="px row">
+        <span class="lbl">Extract fps:</span>
+        <span class="combo">2</span>
+        <span class="btn btn-small">Extract Frames</span>
+      </div>
+
+      <div class="px statusbar">Ready — name a session, then capture</div>
+
+      <!-- bottom -->
+      <div class="bottom">
+        <div class="btn btn-quit">✕&nbsp;&nbsp;QUIT</div>
+        <div class="btn btn-shut">⏻&nbsp;&nbsp;SHUTDOWN</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
