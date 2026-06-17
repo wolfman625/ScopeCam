@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ScopeCam — GUI Layout Preview</title>
+<style>
+  /* Colours pulled directly from Scope.py constants */
+  :root {
+    --bg:     #f5f5f5;
+    --panel:  #e0e0e0;
+    --accent: #0057b7;
+    --text:   #111111;
+    --muted:  #555555;
+    --green:  #1a6e1a;
+    --blue:   #0057b7;
+    --red:    #b91c1c;
+    --dark:   #c8c8c8;
+    --orange: #c45c00;
+  }
+
+  body {
+    margin: 0;
+    background: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: "Courier New", monospace;
+    padding: 24px 0;
+  }
+
+  .caption {
+    color: #ddd;
+    font-family: system-ui, sans-serif;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  /* Window = 1024 x 600, fixed (resizable False in code) */
+  .window {
+    width: 1024px;
+    height: 600px;
+    display: flex;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+
+  /* ── Left: live preview (720 wide, full height) ── */
+  .preview {
+    width: 720px;
+    height: 600px;
+    background: #000;
+    position: relative;
+    color: #888;
+    overflow: hidden;
+  }
+  /* simulated target backdrop */
+  .preview .target {
+    position: absolute;
+    top: 55px; left: 0; right: 0;
+    height: 490px;          /* PREVIEW_H */
+    background:
+      radial-gradient(circle at 50% 50%, #4a4a44 0 2px, transparent 2px),
+      repeating-linear-gradient(0deg,  #2a2a28 0 1px, transparent 1px 40px),
+      repeating-linear-gradient(90deg, #2a2a28 0 1px, transparent 1px 40px),
+      #1c1c1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* green crosshair, centre of the 720x490 preview region */
+  .crosshair {
+    position: absolute;
+    left: 360px; top: 300px;
+    transform: translate(-50%, -50%);
+    width: 150px; height: 150px;
+  }
+  .crosshair::before, .crosshair::after {
+    content: "";
+    position: absolute;
+    background: rgb(0,220,0);
+    box-shadow: 1px 1px 0 #000;
+  }
+  .crosshair::before { left: 0; right: 0; top: 50%; height: 2px;
+                       transform: translateY(-50%); }
+  .crosshair::after  { top: 0; bottom: 0; left: 50%; width: 2px;
+                       transform: translateX(-50%); }
+  .ch-gap {
+    position: absolute; left: 50%; top: 50%;
+    width: 36px; height: 36px;
+    transform: translate(-50%,-50%);
+    background: #1c1c1a;
+    box-shadow: 0 0 0 0;
+  }
+  .ch-dot {
+    position: absolute; left: 50%; top: 50%;
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgb(0,220,0);
+    transform: translate(-50%,-50%);
+  }
+
+  /* numbered red shot markers */
+  .shot {
+    position: absolute;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: rgb(220,30,30);
+    border: 1px solid #fff;
+    box-shadow: 1px 1px 0 #000;
+    color: #fff; font-size: 10px; font-weight: bold;
+    display: flex; align-items: center; justify-content: center;
+    transform: translate(-50%,-50%);
+  }
+  .centroid {
+    position: absolute;
+    width: 14px; height: 14px;
+    transform: translate(-50%,-50%);
+  }
+  .centroid::before, .centroid::after {
+    content:""; position:absolute; background: rgb(255,255,0);
+  }
+  .centroid::before { left:0; right:0; top:50%; height:2px; transform:translateY(-50%);}
+  .centroid::after  { top:0; bottom:0; left:50%; width:2px; transform:translateX(-50%);}
+
+  /* stats overlay box, bottom-left of preview */
+  .stats-overlay {
+    position: absolute;
+    left: 8px; bottom: 12px;
+    background: rgba(0,0,0,0.63);
+    color: #fff;
+    font-size: 12px;
+    line-height: 16px;
+    padding: 4px 6px;
+    white-space: pre;
+  }
+
+  /* ── Right: control panel (304 wide) ── */
+  .panel {
+    width: 304px;
+    height: 600px;
+    background: var(--panel);
+    color: var(--text);
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    font-size: 11px;
+  }
+  .panel .pad { padding: 0 12px; }
+
+  .titlebar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px 0 12px;
+  }
+  .titlebar .title { color: var(--accent); font-weight: bold; font-size: 13px; }
+  .titlebar .ssd   { color: var(--muted); font-size: 8px; }
+
+  hr.sep { border: none; border-top: 1px solid #b9b9b9; margin: 6px 12px; }
+
+  .hdr { color: var(--accent); font-weight: bold; font-size: 9px;
+         padding: 2px 12px 0 12px; letter-spacing: .3px; }
+  .muted { color: var(--muted); font-size: 8px; padding: 0 12px; }
+  .orange { color: var(--orange); font-size: 8px; padding: 0 12px; }
+  .row { display: flex; gap: 4px; padding: 3px 12px 0 12px; align-items: center; }
+
+  button {
+    font-family: "Courier New", monospace;
+    font-size: 11px; font-weight: bold;
+    border: none; border-radius: 2px;
+    padding: 9px 8px; cursor: pointer; color: #fff;
+  }
+  .btn-orange { background: var(--orange); }
+  .btn-blue   { background: var(--blue); }
+  .btn-dark   { background: var(--dark); color: var(--text); }
+  .btn-green-t{ background: var(--dark); color: var(--green); }
+  .btn-red    { background: var(--red); }
+  .btn-redt   { background: var(--dark); color: var(--red); }
+
+  select, .slider {
+    font-family: "Courier New", monospace; font-size: 8px;
+  }
+  select { background: #fff; border: 1px solid #aaa; padding: 1px; }
+  .slider {
+    -webkit-appearance: none; width: 150px; height: 14px;
+    background: var(--panel);
+  }
+  .slider::-webkit-slider-runnable-track {
+    height: 4px; background: #9a9a9a; border-radius: 2px;
+  }
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 12px; height: 16px;
+    background: #777; margin-top: -6px; border-radius: 2px;
+  }
+
+  .stats-text { padding: 2px 12px; font-size: 11px; line-height: 15px; }
+
+  .spacer { flex: 1; }
+
+  .statusbar { color: var(--muted); font-size: 8px; padding: 3px 12px; }
+
+  .bottom { display: flex; gap: 6px; padding: 5px 12px; }
+  .bottom button { flex: 1; padding: 11px; font-size: 12px; }
+
+  .checkbox { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; }
+  .checkbox .box {
+    width: 11px; height: 11px; background: var(--dark);
+    border: 1px solid #999; display: inline-block; position: relative;
+  }
+  .checkbox .box.checked::after {
+    content: "✓"; position: absolute; left: 1px; top: -2px; font-size: 10px;
+  }
+</style>
+</head>
+<body>
+  <div class="caption">ScopeCam — GUI layout preview (1024 × 600, exact colours &amp; proportions from Scope.py). Static mock-up; preview pane shows a simulated target.</div>
+
+  <div class="window">
+
+    <!-- ── LEFT: LIVE PREVIEW ── -->
+    <div class="preview">
+      <div class="target">
+        <!-- crosshair -->
+        <div class="crosshair">
+          <div class="ch-gap"></div>
+          <div class="ch-dot"></div>
+        </div>
+        <!-- shot markers (positioned within the 720x490 region) -->
+        <div class="shot" style="left:330px; top:230px;">1</div>
+        <div class="shot" style="left:355px; top:215px;">2</div>
+        <div class="shot" style="left:342px; top:248px;">3</div>
+        <!-- group centroid -->
+        <div class="centroid" style="left:342px; top:231px;"></div>
+        <!-- stats overlay -->
+        <div class="stats-overlay">Shots: 3
+ES:  0.82"  0.78 MOA
+MR:  0.41"  0.39 MOA
+CEP: 0.38"  0.36 MOA</div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT: CONTROL PANEL ── -->
+    <div class="panel">
+      <div class="titlebar">
+        <span class="title">⬡ SCOPECAM</span>
+        <span class="ssd">📂 Local</span>
+      </div>
+      <hr class="sep">
+
+      <!-- 1. CALIBRATION -->
+      <div class="hdr">1&nbsp;&nbsp;GRID CALIBRATION</div>
+      <div class="muted">Click 2 points exactly 1" apart on grid</div>
+      <div class="orange">Not calibrated</div>
+      <div class="row">
+        <button class="btn-orange">Start Calibration</button>
+        <button class="btn-dark">Reset</button>
+      </div>
+      <hr class="sep">
+
+      <!-- 2. HIT DETECTION -->
+      <div class="hdr">2&nbsp;&nbsp;HIT DETECTION</div>
+      <div class="row">
+        <button class="btn-blue">Set Ref</button>
+        <button class="btn-dark">Auto: OFF</button>
+        <button class="btn-dark">Manual</button>
+      </div>
+      <div class="muted">No reference set</div>
+      <hr class="sep">
+
+      <!-- 3. AUDIO SHOT TRIGGER -->
+      <div class="hdr">3&nbsp;&nbsp;AUDIO SHOT TRIGGER</div>
+      <div class="row">
+        <span class="muted" style="padding:0;">Mic:</span>
+        <select><option>0: USB PnP Audio Device</option></select>
+      </div>
+      <div class="row">
+        <span class="muted" style="padding:0;">Sensitivity:</span>
+        <input class="slider" type="range" min="0.05" max="0.5" step="0.01" value="0.15">
+      </div>
+      <div class="row">
+        <button class="btn-green-t">🎤 Start Listening</button>
+      </div>
+      <div class="muted">Not listening</div>
+      <hr class="sep">
+
+      <!-- 4. GROUP STATISTICS -->
+      <div class="hdr">4&nbsp;&nbsp;GROUP STATISTICS</div>
+      <div class="stats-text">Shots: 3
+ES:&nbsp;&nbsp;&nbsp;0.82"&nbsp;&nbsp;(0.78 MOA)
+MR:&nbsp;&nbsp;&nbsp;0.41"&nbsp;&nbsp;(0.39 MOA)
+CEP:&nbsp;&nbsp;0.38"&nbsp;&nbsp;(0.36 MOA)</div>
+      <div class="row">
+        <button class="btn-redt">Clear</button>
+        <button class="btn-green-t">CSV</button>
+        <button class="btn-blue">📷</button>
+      </div>
+      <hr class="sep">
+
+      <!-- Record + crosshair -->
+      <div class="row" style="align-items:center;">
+        <button class="btn-green-t">⏺ Record</button>
+        <span class="checkbox"><span class="box checked"></span>Crosshair</span>
+      </div>
+
+      <div class="statusbar">Ready — calibrate grid first</div>
+
+      <div class="spacer"></div>
+
+      <!-- Quit + Shutdown -->
+      <div class="bottom">
+        <button class="btn-redt">✕&nbsp;&nbsp;QUIT</button>
+        <button class="btn-red">⏻&nbsp;&nbsp;SHUTDOWN</button>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
